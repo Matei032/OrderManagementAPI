@@ -8,26 +8,20 @@ using OrderManagementAPI.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Infra
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddAutoMapper(typeof(AdvancedOrderMappingProfile).Assembly);
 
-// Store + Repositories (in-memory)
 builder.Services.AddSingleton<OrderStore>();
 builder.Services.AddScoped<IOrderReadRepository, InMemoryOrderReadRepository>();
 
-// Handlers
 builder.Services.AddScoped<CreateOrderHandler>();
 
-// Validation
 builder.Services.AddScoped<CreateOrderProfileValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderProfileValidator>();
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -36,10 +30,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Correlation middleware
 app.UseCorrelation();
 
-// POST /orders (cu validare FluentValidation)
+app.UseGlobalExceptionHandling();
+
 app.MapPost("/orders", async (CreateOrderProfileRequest req,
                                CreateOrderHandler handler,
                                CreateOrderProfileValidator validator,
@@ -61,7 +55,6 @@ app.MapPost("/orders", async (CreateOrderProfileRequest req,
 .WithName("CreateOrder")
 .WithOpenApi();
 
-// GET /orders (list)
 app.MapGet("/orders", (CreateOrderHandler handler) =>
 {
     var list = handler.GetAll();

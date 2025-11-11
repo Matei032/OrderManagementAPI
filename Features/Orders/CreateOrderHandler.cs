@@ -15,7 +15,7 @@ public class CreateOrderHandler
     private readonly IMemoryCache _cache;
     private readonly ILogger<CreateOrderHandler> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly OrderStore _store; // <- DB in-memory
+    private readonly OrderStore _store;
 
     public CreateOrderHandler(
         IMapper mapper,
@@ -33,7 +33,6 @@ public class CreateOrderHandler
 
     public async Task<OrderProfileDto> HandleAsync(CreateOrderProfileRequest request, CancellationToken ct = default)
     {
-        // correlation id din middleware
         var correlationId =
             _httpContextAccessor.HttpContext?.Request.Headers["X-Correlation-Id"].ToString()
             ?? "n/a";
@@ -55,7 +54,6 @@ public class CreateOrderHandler
             request.Title, request.Author, request.Category, request.ISBN
         );
 
-        // 1) Validation phase (ISBN unicitate)
         var validationStart = Stopwatch.GetTimestamp();
 
         var normalizedIsbn = NormalizeIsbn(request.ISBN);
@@ -89,7 +87,6 @@ public class CreateOrderHandler
 
         var validationEnd = Stopwatch.GetTimestamp();
 
-        // 2) "DB save" (în store-ul in-memory)
         var dbStart = Stopwatch.GetTimestamp();
 
         _logger.LogDebug(
@@ -108,17 +105,14 @@ public class CreateOrderHandler
 
         var dbEnd = Stopwatch.GetTimestamp();
 
-        // 3) Cache invalidation
         _cache.Remove("all_orders");
         _logger.LogInformation(
             new EventId(LogEvents.CacheOperationPerformed, nameof(LogEvents.CacheOperationPerformed)),
             "Cache invalidated for key 'all_orders'"
         );
 
-        // 4) Map -> DTO
         var dto = _mapper.Map<OrderProfileDto>(entity);
 
-        // 5) Metrics + telemetry
         var successMetrics = BuildMetrics(
             request,
             operationId,
